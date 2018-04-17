@@ -23,6 +23,8 @@ void ofApp::setup(){
     mFrames = movie.getTotalNumFrames();
     mHeight = (int)movie.getHeight();
     mWidth = (int)movie.getWidth();
+    maxDim = mHeight > mWidth ? mHeight : mWidth;
+    maxDim = mFrames > maxDim ? mFrames : maxDim;
     mChannels = 3;
     cout << "Video loaded: " << mFrames << " frames @ " << mHeight << " x " << mWidth << ", " << mChannels << " channels.\n";
     
@@ -48,11 +50,11 @@ void ofApp::setup(){
     gui.setup();
     
     gui.add(playToggle.setup("playing", false));
-    gui.add(tSlider.setup("t parameter", 0, -0.995, 0.995));
+    gui.add(tSlider.setup("t parameter", 0, -maxDim/2, maxDim/2-1));
     gui.add(xSlider.setup("x angle", 0, -90, 90));
     gui.add(ySlider.setup("y angle", 0, -90, 90));
-    gui.add(outWidthSlider.set("output width", mWidth, 100, 1920));
-    gui.add(outHeightSlider.set("output height", mFrames, 100, 1920));
+    gui.add(outWidthSlider.set("output width", mWidth, 100, maxDim));
+    gui.add(outHeightSlider.set("output height", mFrames, 100, maxDim));
     gui.add(dirX.set("t direction x", 0, -90, 90));
     gui.add(dirY.set("t direction y", 0, -90,  90));
     
@@ -117,7 +119,6 @@ void ofApp::update(){
                 for (int x = 0; x < mWidth; x++) {
                     for (int c = 0; c < mChannels; c++) {
                         cube[bytesPerFrame * f + bytesPerRow * y + x * mChannels + c] = pixels[bytesPerRow * y + x * mChannels + c];
-                        
                     }
                 }
             }
@@ -139,9 +140,10 @@ void ofApp::update(){
     } else if (state == "PLAYING") {
         // if we're playing, advance the time ticker
         if (playToggle) {
-            tSlider = tSlider + 0.005;
-            if (tSlider > 1) {
-                tSlider = 0;
+            tSlider = tSlider + 1;
+            
+            if (tSlider >= maxDim/2) {
+                tSlider = -maxDim/2;
             }
         }
         
@@ -170,9 +172,9 @@ void ofApp::updateFrame() {
             
             rotated_coords = matMul(ofVec3f(normal_x, normal_y, 0), trans);
             
-            denormal_y = rotated_coords.y + mFrames / 2 + travel_direction.y * mWidth;
-            denormal_x = rotated_coords.x + mWidth / 2 + travel_direction.x * mHeight;
-            denormal_z = rotated_coords.z + travel_direction.z * mHeight;
+            denormal_y = rotated_coords.y + mFrames / 2 + travel_direction.y;
+            denormal_x = rotated_coords.x + mWidth / 2  + travel_direction.x;
+            denormal_z = rotated_coords.z + mHeight / 2 + travel_direction.z;
             
             // now apply these values to every  channel
             for (int c = 0; c < mChannels; c++) {
@@ -239,7 +241,7 @@ void ofApp::drawSliceCube() {
     ofMatrix3x3 transDir = getRotationMatrix(dirX, dirY, 0);
     ofVec3f travel_normal = matMul(ofVec3f(0,0,1), transDir);
     ofVec3f travel_direction = travel_normal * tSlider;
-    ofVec3f start_position = ofVec3f(travel_direction.x*mHeight, travel_direction.y*mHeight, travel_direction.z*mHeight - mHeight/2);
+    ofVec3f start_position = ofVec3f(travel_direction.x, travel_direction.y, travel_direction.z);
     
     slice.resizeToTexture(displayed.getTexture());
     slice.setHeight(outHeight);

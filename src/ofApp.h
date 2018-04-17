@@ -36,7 +36,7 @@ private:
     string              state;
 
     ofVideoPlayer       movie;
-    int                 mFrames, mHeight, mWidth, mChannels;
+    int                 mFrames, mHeight, mWidth, mChannels, maxDim;
     unsigned char *     cube;
     
     ofImage             displayed;
