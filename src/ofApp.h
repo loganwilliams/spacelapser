@@ -50,6 +50,7 @@ private:
     ofxFloatSlider      xSlider;
     ofxFloatSlider      ySlider;
     ofParameter<float>  outHeightSlider, outWidthSlider;
+    ofParameter<float>  dirX, dirY;
     
     // 3D cube slicer
     ofEasyCam           cam;

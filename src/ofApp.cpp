@@ -48,11 +48,15 @@ void ofApp::setup(){
     gui.setup();
     
     gui.add(playToggle.setup("playing", false));
-    gui.add(tSlider.setup("t parameter", 0, 0, 0.995));
-    gui.add(xSlider.setup("x angle", 0, -45, 45));
-    gui.add(ySlider.setup("y angle", 0, -45, 45));
+    gui.add(tSlider.setup("t parameter", 0, -0.995, 0.995));
+    gui.add(xSlider.setup("x angle", 0, -90, 90));
+    gui.add(ySlider.setup("y angle", 0, -90, 90));
     gui.add(outWidthSlider.set("output width", mWidth, 100, 1920));
     gui.add(outHeightSlider.set("output height", mFrames, 100, 1920));
+    gui.add(dirX.set("t direction x", 0, -90, 90));
+    gui.add(dirY.set("t direction y", 0, -90,  90));
+    
+    // TODO add some preset options
     
     outHeightSlider.addListener(this, &ofApp::outSizeChanged);
     outWidthSlider.addListener(this, &ofApp::outSizeChanged);
@@ -148,8 +152,10 @@ void ofApp::update(){
 
 // get the pixel values of the coordinates on the slice plane
 void ofApp::updateFrame() {
+    ofMatrix3x3 transDir = getRotationMatrix(dirX, dirY, 0);
+    
     ofMatrix3x3 trans = getRotationMatrix(xSlider, ySlider, 0);
-    ofVec3f rotated_coords;
+    ofVec3f rotated_coords, travel_direction;
     // I'm not sure if there's an overhead to using ofVec2fs, so I'm using floats.
     float normal_y, normal_x;
     int denormal_x, denormal_y, denormal_z;
@@ -160,14 +166,13 @@ void ofApp::updateFrame() {
             normal_y = (float) y - outHeight/2;
             normal_x = (float) x - outWidth/2;
             
-            // TODO allow movement along any axis, not just the z axis.
-            // this will be where the magic happens
+            travel_direction = matMul(ofVec3f(0, 0, tSlider), transDir);
             
             rotated_coords = matMul(ofVec3f(normal_x, normal_y, 0), trans);
             
-            denormal_y = rotated_coords.y + mFrames / 2;
-            denormal_x = rotated_coords.x + mWidth / 2;
-            denormal_z = rotated_coords.z + tSlider * mHeight;
+            denormal_y = rotated_coords.y + mFrames / 2 + travel_direction.y * mWidth;
+            denormal_x = rotated_coords.x + mWidth / 2 + travel_direction.x * mHeight;
+            denormal_z = rotated_coords.z + travel_direction.z * mHeight;
             
             // now apply these values to every  channel
             for (int c = 0; c < mChannels; c++) {
@@ -193,9 +198,11 @@ unsigned char ofApp::getPixel(int frame, int y, int x, int channel) {
 //--------------------------------------------------------------
 void ofApp::draw(){
     if (state == "LOADING") {
+        ofBackground(60,70, 80);
         int f = movie.getCurrentFrame();
+        ofSetColor(255,255,255);
         movie.draw(0, 40, 640, 400);
-        ofSetHexColor(0x888888);
+        ofSetColor(255, 119, 35, 200);
         ofDrawBitmapString("loading frame " + ofToString(f) + "/" + ofToString(mFrames), 20, 20);
   
     } else if (state == "PLAYING") {
@@ -225,24 +232,35 @@ void ofApp::draw(){
 void ofApp::drawSliceCube() {
     // start and clear the buffer we are drawing in to
     fbo.begin();
-    ofClear(60,70,80,0);
+    ofClear(40,45,50,0);
     cam.begin();
     
     // Draw plane
+    ofMatrix3x3 transDir = getRotationMatrix(dirX, dirY, 0);
+    ofVec3f travel_normal = matMul(ofVec3f(0,0,1), transDir);
+    ofVec3f travel_direction = travel_normal * tSlider;
+    ofVec3f start_position = ofVec3f(travel_direction.x*mHeight, travel_direction.y*mHeight, travel_direction.z*mHeight - mHeight/2);
+    
     slice.resizeToTexture(displayed.getTexture());
     slice.setHeight(outHeight);
     slice.setWidth(outWidth);
     displayed.getTexture().bind();
     ofSetColor(255, 255, 255, 200);
     slice.setOrientation(ofVec3f(xSlider, ySlider, 0));
-    slice.setPosition(0, 0, tSlider*mHeight - mHeight/2);
+    
+    slice.setPosition(start_position);
     slice.draw();
     displayed.getTexture().unbind();
+    
+    // draw an arrow in the direction of t
+    ofSetColor(255, 119, 35, 200);
+    ofSetLineWidth(5);
+    ofDrawArrow(start_position, start_position + travel_normal*100, 10);
     
     // Draw cube
     ofSetColor(255);
     ofNoFill();
-    ofSetLineWidth(1);
+    ofSetLineWidth(2);
     ofDrawBox(mWidth, mFrames, mHeight);
     
     // Draw first frame of the movie on the bottom of the box
@@ -333,7 +351,10 @@ void ofApp::dragEvent(ofDragInfo dragInfo){
 
 // makes a 3x3 rotation matrix (XYZ application order)
 ofMatrix3x3 ofApp::getRotationMatrix(float xAngle, float yAngle, float zAngle) {
-    ofMatrix3x3 xMatrix = ofMatrix3x3(1, 0, 0, 0, cosd(xAngle), -sind(xAngle), 0, sind(xAngle), cosd(xAngle));
+    ofMatrix3x3 xMatrix = ofMatrix3x3(1, 0              , 0,
+                                      0, cosd(xAngle)   , -sind(xAngle),
+                                      0, sind(xAngle)   , cosd(xAngle));
+    
     ofMatrix3x3 yMatrix = ofMatrix3x3(cosd(yAngle), 0, sind(yAngle), 0, 1, 0, -sind(yAngle), 0, cosd(yAngle));
     ofMatrix3x3 zMatrix = ofMatrix3x3(cosd(zAngle), -sind(zAngle), 0, sind(zAngle), cosd(zAngle), 0, 0, 0, 1);
     return zMatrix * yMatrix * xMatrix;
@@ -343,6 +364,6 @@ ofMatrix3x3 ofApp::getRotationMatrix(float xAngle, float yAngle, float zAngle) {
 ofVec3f ofApp::matMul(ofVec3f vec, ofMatrix3x3 mat) {
     return ofVec3f(mat.a * vec.x + mat.b * vec.y + mat.c * vec.z,
                    mat.d * vec.x + mat.e * vec.y + mat.f * vec.z,
-                   mat.g * vec.x + mat.h * vec.y + mat.h * vec.z);
+                   mat.g * vec.x + mat.h * vec.y + mat.i * vec.z);
 }
 
