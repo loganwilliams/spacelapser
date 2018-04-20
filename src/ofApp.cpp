@@ -57,11 +57,15 @@ void ofApp::setup(){
     gui.add(outHeightSlider.set("output height", mFrames, 100, maxDim));
     gui.add(dirX.set("t direction x", 0, -90, 90));
     gui.add(dirY.set("t direction y", 0, -90,  90));
+    gui.add(saveButton.setup("save video"));
+    gui.add(hq.setup("hq preview", false));
     
     // TODO add some preset options
     
     outHeightSlider.addListener(this, &ofApp::outSizeChanged);
     outWidthSlider.addListener(this, &ofApp::outSizeChanged);
+    
+    saveButton.addListener(this, &ofApp::recordVideo);
     
     // setup the camera
     cam.setPosition(100, 100, 200);
@@ -160,7 +164,7 @@ void ofApp::updateFrame() {
     ofVec3f rotated_coords, travel_direction;
     // I'm not sure if there's an overhead to using ofVec2fs, so I'm using floats.
     float normal_y, normal_x;
-    int denormal_x, denormal_y, denormal_z;
+    float denormal_x, denormal_y, denormal_z;
     
     for (int y = 0; y < outHeight; y++) {
         for (int x = 0; x < outWidth; x++) {
@@ -177,8 +181,14 @@ void ofApp::updateFrame() {
             denormal_z = rotated_coords.z + mHeight / 2 + travel_direction.z;
             
             // now apply these values to every  channel
-            for (int c = 0; c < mChannels; c++) {
-                frame[bytesPerRowOutput * y + x * mChannels + c] = getPixel(denormal_y, denormal_z, denormal_x, c);
+            if (hq) {
+                for (int c = 0; c < mChannels; c++) {
+                    frame[bytesPerRowOutput * y + x * mChannels + c] = getPixel(denormal_y, denormal_z, denormal_x, c);
+                }
+            } else {
+                for (int c = 0; c < mChannels; c++) {
+                    frame[bytesPerRowOutput * y + x * mChannels + c] = getPixel((int) denormal_y, (int) denormal_z, (int) denormal_x, c);
+                }
             }
         }
     }
@@ -188,12 +198,51 @@ void ofApp::updateFrame() {
 }
 
 // get the value of a pixel within the X-Y-F volume
-// TODO make a float version that does interpolation
 unsigned char ofApp::getPixel(int frame, int y, int x, int channel) {
     if (frame < 0 || frame >= mFrames || x < 0 || x >= mWidth || y < 0 || y >= mHeight) {
         return 0;
     } else {
         return cube[frame * bytesPerFrame + y * bytesPerRow + x * mChannels + channel];
+    }
+}
+
+// get the value of a pixel within the X-Y-F volume, using trilinear interpolation
+unsigned char ofApp::getPixel(float frame, float y, float x, int channel) {
+    // these thresholds are different so that we have a smooth fade to black at the sides.
+    if (frame < -1 || frame > mFrames + 1 || x < -1 || x > mWidth + 1 || y < -1 || y > mHeight + 1) {
+        return 0;
+    } else {
+        // tri-linear interpolation
+
+        int fl = (int) floor(frame);
+        int fh = (int) ceil(frame);
+        int xl = (int) floor(x);
+        int xh = (int) ceil(x);
+        int yl = (int) floor(y);
+        int yh = (int) ceil(y);
+        
+        unsigned char c000 = getPixel(fl, yl, xl, channel);
+        unsigned char c001 = getPixel(fh, yl, xl, channel);
+        unsigned char c010 = getPixel(fl, yh, xl, channel);
+        unsigned char c100 = getPixel(fl, yl, xh, channel);
+        unsigned char c011 = getPixel(fh, yh, xl, channel);
+        unsigned char c101 = getPixel(fh, yl, xh, channel);
+        unsigned char c110 = getPixel(fl, yh, xh, channel);
+        unsigned char c111 = getPixel(fh, yh, xh, channel);
+        
+        float xd = x - xl;
+        float yd = y - yl;
+        float fd = frame - fl;
+        
+        float c00 = c000 * (1 - xd) + c100 * xd;
+        float c01 = c001 * (1 - xd) + c101 * xd;
+        float c10 = c010 * (1 - xd) + c110 * xd;
+        float c11 = c011 * (1 - xd) + c111 * xd;
+        
+        float c0 = c00 * (1 - yd) + c10 * yd;
+        float c1 = c01 * (1 - yd) + c11 * yd;
+        
+        return ((unsigned char) c0 * (1 - fd) + c1 * fd);
     }
 }
 
@@ -346,6 +395,39 @@ void ofApp::gotMessage(ofMessage msg){
 //--------------------------------------------------------------
 void ofApp::dragEvent(ofDragInfo dragInfo){
     
+}
+
+void ofApp::recordVideo() {
+    cout << "recording video \n";
+    hq = true;
+    vidRecorder.setVideoCodec("mpeg4");
+    vidRecorder.setVideoBitrate("40000k");
+    
+    ofFileDialogResult result = ofSystemSaveDialog("output.mp4", "Select save location");
+    
+    string path = "";
+    
+    if (result.bSuccess) {
+        path = result.getPath();
+    } else {
+        return;
+    }
+    
+    vidRecorder.setup(path, outWidth, outHeight, 30);
+    
+    vidRecorder.start();
+    ofImage tmpIm;
+    
+    for (tSlider = -maxDim/2; tSlider < maxDim/2; tSlider = tSlider + 1) {
+        cout << "frame " << tSlider << "\n";
+        updateFrame();
+        tmpIm.setFromPixels(displayed.getPixels());
+        tmpIm.mirror(true, false);
+        vidRecorder.addFrame(tmpIm.getPixels());
+        
+    }
+    
+    vidRecorder.close();
 }
 
 //--------------------------------------------------------------
