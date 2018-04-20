@@ -68,7 +68,7 @@ void ofApp::setup(){
     saveButton.addListener(this, &ofApp::recordVideo);
     
     // setup the camera
-    cam.setPosition(100, 100, 200);
+    cam.setPosition(160, 160, 320);
     cam.lookAt(ofVec3f(0,0,0));
     
     // set up the 3D planes
@@ -127,6 +127,8 @@ void ofApp::update(){
                 }
             }
             
+            lastFrameTex = movie.getTexture();
+            
             if (f < mFrames-1) {
                 // get the next frame to do it again
                 movie.nextFrame();
@@ -134,7 +136,6 @@ void ofApp::update(){
                 // safe a reference to the last texture
                 // TODO should probably copy this too, because who knows how stable this reference is
                 // that said, it seems to work
-                lastFrameTex = movie.getTexture();
                 movie.close();
                 state = "PLAYING";
             }
@@ -252,9 +253,13 @@ void ofApp::draw(){
         ofBackground(60,70, 80);
         int f = movie.getCurrentFrame();
         ofSetColor(255,255,255);
-        movie.draw(0, 40, 640, 400);
+        movie.draw(300,40, 640, 400);
         ofSetColor(255, 119, 35, 200);
         ofDrawBitmapString("loading frame " + ofToString(f) + "/" + ofToString(mFrames), 20, 20);
+        
+        ofSetColor(255, 255, 255);
+        drawSliceCube();
+        fbo.draw(0,0);
   
     } else if (state == "PLAYING") {
         // blue-ish gray background
@@ -286,27 +291,29 @@ void ofApp::drawSliceCube() {
     ofClear(40,45,50,0);
     cam.begin();
     
-    // Draw plane
-    ofMatrix3x3 transDir = getRotationMatrix(dirX, dirY, 0);
-    ofVec3f travel_normal = matMul(ofVec3f(0,0,1), transDir);
-    ofVec3f travel_direction = travel_normal * tSlider;
-    ofVec3f start_position = ofVec3f(travel_direction.x, travel_direction.y, travel_direction.z);
-    
-    slice.resizeToTexture(displayed.getTexture());
-    slice.setHeight(outHeight);
-    slice.setWidth(outWidth);
-    displayed.getTexture().bind();
-    ofSetColor(255, 255, 255, 200);
-    slice.setOrientation(ofVec3f(xSlider, ySlider, 0));
-    
-    slice.setPosition(start_position);
-    slice.draw();
-    displayed.getTexture().unbind();
-    
-    // draw an arrow in the direction of t
-    ofSetColor(255, 119, 35, 200);
-    ofSetLineWidth(5);
-    ofDrawArrow(start_position, start_position + travel_normal*100, 10);
+    if (state == "PLAYING") {
+        // Draw plane
+        ofMatrix3x3 transDir = getRotationMatrix(dirX, dirY, 0);
+        ofVec3f travel_normal = matMul(ofVec3f(0,0,1), transDir);
+        ofVec3f travel_direction = travel_normal * tSlider;
+        ofVec3f start_position = ofVec3f(travel_direction.x, travel_direction.y, travel_direction.z);
+        
+        slice.resizeToTexture(displayed.getTexture());
+        slice.setHeight(outHeight);
+        slice.setWidth(outWidth);
+        displayed.getTexture().bind();
+        ofSetColor(255, 255, 255, 200);
+        slice.setOrientation(ofVec3f(xSlider, ySlider, 0));
+        
+        slice.setPosition(start_position);
+        slice.draw();
+        displayed.getTexture().unbind();
+        
+        // draw an arrow in the direction of t
+        ofSetColor(255, 119, 35, 200);
+        ofSetLineWidth(5);
+        ofDrawArrow(start_position, start_position + travel_normal*100, 10);
+    }
     
     // Draw cube
     ofSetColor(255);
@@ -327,16 +334,29 @@ void ofApp::drawSliceCube() {
     firstFrameImage.unbind();
     
     // Draw last frame of the movie on the top of the box
-    lastFrame.resizeToTexture(lastFrameTex);
-    lastFrame.setPosition(0, mFrames/2, 0);
-    lastFrame.setOrientation(ofVec3f(90, 0, 0));
-    lastFrame.setHeight(mHeight);
-    lastFrame.setWidth(mWidth);
-    
-    lastFrameTex.bind();
-    ofSetColor(255,255,255,127);
-    lastFrame.draw();
-    lastFrameTex.unbind();
+    if (state == "LOADING") {
+        lastFrame.resizeToTexture(movie.getTexture());
+        lastFrame.setPosition(0, -mFrames/2 + movie.getCurrentFrame(), 0);
+        lastFrame.setOrientation(ofVec3f(90, 0, 0));
+        lastFrame.setHeight(mHeight);
+        lastFrame.setWidth(mWidth);
+
+        movie.getTexture().bind();
+        ofSetColor(255,255,255,127);
+        lastFrame.draw();
+        movie.getTexture().unbind();
+    } else {
+        lastFrame.resizeToTexture(lastFrameTex);
+        lastFrame.setPosition(0, mFrames/2, 0);
+        lastFrame.setOrientation(ofVec3f(90, 0, 0));
+        lastFrame.setHeight(mHeight);
+        lastFrame.setWidth(mWidth);
+
+        lastFrameTex.bind();
+        ofSetColor(255,255,255,127);
+        lastFrame.draw();
+        lastFrameTex.unbind();
+    }
     
     // we're done
     cam.end();
