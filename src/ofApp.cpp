@@ -6,8 +6,6 @@ void ofApp::setup(){
     ofBackground(255, 255, 255);
     ofSetFrameRate(120);
     
-    fbo.allocate(600, 768, GL_RGB);
-    
     state = "LOADING";
     
     // Load a movie to work with
@@ -49,16 +47,26 @@ void ofApp::setup(){
     // setup the GUI
     gui.setup();
     
+    transportGroup.setName("transport");
+    transportGroup.add(tSlider.set("t parameter", 0, -maxDim/2, maxDim/2-1));
+    gui.add(transportGroup);
     gui.add(playToggle.setup("playing", false));
-    gui.add(tSlider.setup("t parameter", 0, -maxDim/2, maxDim/2-1));
-    gui.add(xSlider.setup("x angle", 0, -90, 90));
-    gui.add(ySlider.setup("y angle", 0, -90, 90));
-    gui.add(outWidthSlider.set("output width", mWidth, 100, maxDim));
-    gui.add(outHeightSlider.set("output height", mFrames, 100, maxDim));
-    gui.add(dirX.set("t direction x", 0, -90, 90));
-    gui.add(dirY.set("t direction y", 0, -90,  90));
-    gui.add(saveButton.setup("save video"));
+
+    renderGroup.setName("render");
+    renderGroup.add(xSlider.set("x angle", 0, -90, 90));
+    renderGroup.add(ySlider.set("y angle", 0, -90, 90));
+    renderGroup.add(outWidthSlider.set("output width", mWidth, 100, maxDim));
+    renderGroup.add(outHeightSlider.set("output height", mFrames, 100, maxDim));
+    renderGroup.add(dirX.set("t direction x", 0, -90, 90));
+    renderGroup.add(dirY.set("t direction y", 0, -90,  90));
+    gui.add(renderGroup);
     gui.add(hq.setup("hq preview", false));
+    
+    outputGroup.setName("output");
+    outputGroup.add(tMin.set("t minimum (for save)",  -maxDim/2, -maxDim/2, maxDim/2-1));
+    outputGroup.add(tMax.set("t maximum (for savee)",  maxDim/2-1, -maxDim/2, maxDim/2-1));
+    gui.add(outputGroup);
+    gui.add(saveButton.setup("save video"));
     
     // TODO add some preset options
     
@@ -68,24 +76,40 @@ void ofApp::setup(){
     saveButton.addListener(this, &ofApp::recordVideo);
     
     // setup the camera
-    cam.setPosition(160, 160, 320);
+    cam.setPosition(500, 500, 500);
     cam.lookAt(ofVec3f(0,0,0));
     
     // set up the 3D planes
     slice.set(outWidth, outHeight);
     lastFrame.set(mWidth, mHeight);
     firstFrame.set(mWidth, mHeight);
+    
+    windowResized(ofGetWidth(), ofGetHeight());
 }
 
 void ofApp::outSizeChanged(float & parameter) {
     outWidth = (int) outWidthSlider;
     outHeight = (int) outHeightSlider;
     
-    displayed.allocate(outWidth, outHeight, OF_IMAGE_COLOR);
-    frame = displayed.getPixels().getData();
-    
     bytesPerRowOutput = mChannels * outWidth;
     bytesPerFrameOutput = bytesPerRowOutput * outHeight;
+    
+    windowResized(ofGetWidth(), ofGetHeight());
+}
+
+void ofApp::drawTimeline() {
+    float aspect = (float) outWidth / outHeight;
+    float tlAspect = (float) timelineWidth / timelineHeight;
+    
+    int n = (int) ceil(tlAspect / aspect);
+    int w = aspect * timelineHeight;
+    
+    for (int i = 0; i < n; i++) {
+        float t = (int) tMin + (tMax - tMin) * ((float) i / (n-1));
+        getFrame(t, w, timelineHeight).draw(i * w + guiWidth, previewHeight + timelineHeight, w, -timelineHeight);
+    }
+    
+    cout << "\n";
 }
 
 //--------------------------------------------------------------
@@ -157,8 +181,10 @@ void ofApp::update(){
     }
 }
 
-// get the pixel values of the coordinates on the slice plane
-void ofApp::updateFrame() {
+ofImage ofApp::getFrame(float t, int resX, int resY) {
+    ofImage tmpFrame;
+    tmpFrame.allocate(resX, resY, OF_IMAGE_COLOR);
+    unsigned char * tmpPixels = tmpFrame.getPixels().getData();
     ofMatrix3x3 transDir = getRotationMatrix(dirX, dirY, 0);
     
     ofMatrix3x3 trans = getRotationMatrix(xSlider, ySlider, 0);
@@ -167,13 +193,13 @@ void ofApp::updateFrame() {
     float normal_y, normal_x;
     float denormal_x, denormal_y, denormal_z;
     
-    for (int y = 0; y < outHeight; y++) {
-        for (int x = 0; x < outWidth; x++) {
+    for (int y = 0; y < resY; y++) {
+        for (int x = 0; x < resX; x++) {
             
-            normal_y = (float) y - outHeight/2;
-            normal_x = (float) x - outWidth/2;
-            
-            travel_direction = matMul(ofVec3f(0, 0, tSlider), transDir);
+            normal_y = ((((float) y) - ((float) resY)/2) / (((float) resY) / 2)) * (((float) outHeight) / 2);
+            normal_x = ((((float) x) - ((float) resX)/2) / (((float) resX) / 2)) * (((float) outWidth) / 2);
+
+            travel_direction = matMul(ofVec3f(0, 0, t), transDir);
             
             rotated_coords = matMul(ofVec3f(normal_x, normal_y, 0), trans);
             
@@ -184,17 +210,23 @@ void ofApp::updateFrame() {
             // now apply these values to every  channel
             if (hq) {
                 for (int c = 0; c < mChannels; c++) {
-                    frame[bytesPerRowOutput * y + x * mChannels + c] = getPixel(denormal_y, denormal_z, denormal_x, c);
+                    tmpPixels[(mChannels * resX) * y + x * mChannels + c] = getPixel(denormal_y, denormal_z, denormal_x, c);
                 }
             } else {
                 for (int c = 0; c < mChannels; c++) {
-                    frame[bytesPerRowOutput * y + x * mChannels + c] = getPixel((int) denormal_y, (int) denormal_z, (int) denormal_x, c);
+                    tmpPixels[(mChannels * resX) * y + x * mChannels + c] = getPixel((int) denormal_y, (int) denormal_z, (int) denormal_x, c);
                 }
             }
         }
     }
+    
+    tmpFrame.update();
+    return tmpFrame;
+}
 
-    displayed.setFromPixels(frame, outWidth, outHeight, OF_IMAGE_COLOR);
+// get the pixel values of the coordinates on the slice plane
+void ofApp::updateFrame() {
+    displayed = getFrame(tSlider, drawWidth, drawHeight);
     displayed.update();
 }
 
@@ -253,7 +285,7 @@ void ofApp::draw(){
         ofBackground(60,70, 80);
         int f = movie.getCurrentFrame();
         ofSetColor(255,255,255);
-        movie.draw(300,40, 640, 400);
+        movie.draw(guiWidth + drawX, drawY, drawWidth, drawHeight);
         ofSetColor(255, 119, 35, 200);
         ofDrawBitmapString("loading frame " + ofToString(f) + "/" + ofToString(mFrames), 20, 20);
         
@@ -267,14 +299,8 @@ void ofApp::draw(){
         
         // Draw preview output image
         ofSetColor(255, 255, 255);
-        if (outWidth > 800) {
-            int drawWidth = 800;
-            int drawHeight = (drawWidth * outHeight) / outWidth;
-            displayed.draw(600, drawHeight, drawWidth, -drawHeight);
-        } else {
-            displayed.draw(600, outHeight, outWidth, -outHeight);
-        }
-        
+        displayed.draw(guiWidth + drawX, previewHeight - drawY, drawWidth, -drawHeight);
+
         // Draw 3D reference cube
         drawSliceCube();
         fbo.draw(0,0);
@@ -282,6 +308,8 @@ void ofApp::draw(){
         // Draw GUI for adjjusting parameters
         ofSetColor(255, 255, 255);
         gui.draw();
+        
+        drawTimeline();
     }
 }
 
@@ -380,6 +408,11 @@ void ofApp::mouseMoved(int x, int y ){
 //--------------------------------------------------------------
 void ofApp::mouseDragged(int x, int y, int button){
     
+    // if we clicked inside the timeline, scrub the current time
+    if (x > guiWidth && y > previewHeight) {
+        tSlider = tMin + (tMax - tMin) * ((float) ((float) x - guiWidth) / timelineWidth);
+    }
+    
 }
 
 //--------------------------------------------------------------
@@ -405,6 +438,37 @@ void ofApp::mouseExited(int x, int y){
 //--------------------------------------------------------------
 void ofApp::windowResized(int w, int h){
     
+    guiWidth = (int) (5.0/13.0 * (float) w);
+    guiHeight = h;
+    
+    previewWidth = (int) (8.0/13.0 * (float) w);
+    previewHeight = (int) (6.0/8.0 * (float) h);
+    float previewAspect = (float) previewWidth / previewHeight;
+    float frameAspect = (float) outWidth / outHeight;
+    if (previewAspect < frameAspect) {
+        // letterbox top and bottom
+        drawHeight = previewWidth / frameAspect;
+        drawWidth = previewWidth;
+        
+        drawX = 0;
+        drawY = (previewHeight - drawHeight) / 2;
+    } else {
+        drawWidth = previewHeight * frameAspect;
+        drawHeight = previewHeight;
+        
+        drawX = (previewWidth - drawWidth) / 2;
+        drawY = 0;
+    }
+    
+    timelineWidth = previewWidth;
+    timelineHeight = (int) (2.0/8.0 * (float) h);
+    
+    fbo = ofFbo();
+    fbo.allocate(guiWidth, guiHeight, GL_RGB);
+    
+    displayed = ofImage();
+    displayed.allocate(drawWidth, drawHeight, OF_IMAGE_COLOR);
+    frame = displayed.getPixels().getData();
 }
 
 //--------------------------------------------------------------
@@ -438,10 +502,9 @@ void ofApp::recordVideo() {
     vidRecorder.start();
     ofImage tmpIm;
     
-    for (tSlider = -maxDim/2; tSlider < maxDim/2; tSlider = tSlider + 1) {
+    for (tSlider = tMin; tSlider < tMax; tSlider = tSlider + 1) {
         cout << "frame " << tSlider << "\n";
-        updateFrame();
-        tmpIm.setFromPixels(displayed.getPixels());
+        tmpIm = getFrame(tSlider, outWidth, outHeight);
         tmpIm.mirror(true, false);
         vidRecorder.addFrame(tmpIm.getPixels());
         

@@ -27,6 +27,8 @@ public:
     void gotMessage(ofMessage msg);
     unsigned char getPixel(int frame, int y, int x, int channel);
     unsigned char getPixel(float frame, float y, float x, int channel);
+    
+    ofImage getFrame(float t, int resX, int resY);
     void updateFrame();
     ofMatrix3x3 getRotationMatrix(float xAngle, float yAngle, float zAngle);
     ofVec3f matMul(ofVec3f vec, ofMatrix3x3 mat);
@@ -35,6 +37,8 @@ public:
 
     ofxVideoRecorder    vidRecorder;
     void recordVideo();
+    void drawTimeline();
+
     
 private:
     string              state;
@@ -46,20 +50,32 @@ private:
     ofImage             displayed;
     unsigned char *     frame;
     long                bytesPerRow, bytesPerFrame;
+    
+    int                 guiWidth, guiHeight;
+    int                 previewWidth, previewHeight;
+    int                 timelineWidth, timelineHeight;
+    int                 drawHeight, drawWidth, drawX, drawY;
 
     // gui
     ofxPanel            gui;
-    ofxFloatSlider      tSlider;
+    ofParameterGroup    transportGroup;
     ofxToggle           playToggle;
-    ofxFloatSlider      xSlider;
-    ofxFloatSlider      ySlider;
+    ofParameter<float>  tSlider;
+
+    ofParameterGroup    renderGroup;
+    ofParameter<float>  xSlider, ySlider;
     ofParameter<float>  outHeightSlider, outWidthSlider;
     ofParameter<float>  dirX, dirY;
-    ofxButton           saveButton;
     ofxToggle           hq;
+
+    ofParameterGroup    outputGroup;
+    ofParameter<float>  tMin, tMax;
+    ofxButton           saveButton;
+    
+    
     
     // 3D cube slicer
-    ofEasyCam           cam;
+    ofCamera            cam;
     ofFbo               fbo;
     ofPlanePrimitive    slice;
     ofPlanePrimitive    firstFrame;
