@@ -38,6 +38,7 @@ public:
     ofxVideoRecorder    vidRecorder;
     void recordVideo();
     void drawTimeline();
+    void loadVideo();
 
     
 private:
@@ -63,19 +64,20 @@ private:
     ofParameter<float>  tSlider;
 
     ofParameterGroup    renderGroup;
-    ofParameter<float>  xSlider, ySlider;
-    ofParameter<float>  outHeightSlider, outWidthSlider;
+    ofParameter<float>  xSlider, ySlider, zSlider;
+    ofParameter<float>  outHeightSlider, outWidthSlider, outXOffset, outYOffset;
     ofParameter<float>  dirX, dirY;
     ofxToggle           hq;
 
     ofParameterGroup    outputGroup;
-    ofParameter<float>  tMin, tMax;
+    ofParameter<int>    tMin, tMax;
     ofxButton           saveButton;
+    ofxButton           loadButton;
     
     
     
     // 3D cube slicer
-    ofCamera            cam;
+    ofEasyCam           cam;
     ofFbo               fbo;
     ofPlanePrimitive    slice;
     ofPlanePrimitive    firstFrame;
@@ -86,5 +88,9 @@ private:
     int                 outHeight;
     int                 outWidth;
     long                bytesPerRowOutput, bytesPerFrameOutput;
+    
+    ofImage             tv, tvTransparent;
+    
+    bool                drawGui;
 
 };
