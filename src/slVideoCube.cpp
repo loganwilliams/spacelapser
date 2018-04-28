@@ -25,6 +25,9 @@ bool slVideoCube::init(int mFrames, int mWidth, int mHeight, int mChannels) {
     }
     
     cout << "Allocating memory: " << (bytesTotal/1024*1024*1024) << "GB\n";
+    if (cube) {
+        delete cube;
+    }
     cube = new unsigned char[bytesTotal];
     return true;
 }
