@@ -3,10 +3,10 @@
 #include "ofMain.h"
 #include "ofxGui.h"
 #include "ofxVideoRecorder.h"
-
-#define sind(x) (sin(fmod((x),360) * M_PI / 180))
-#define cosd(x) (cos(fmod((x),360) * M_PI / 180))
-
+#include "slTimeline.h"
+#include "slVideoCube.h"
+#include "slLinearAlgebra.h"
+#include "slSliceParams.h"
 
 class ofApp : public ofBaseApp{
 public:
@@ -25,19 +25,12 @@ public:
     void windowResized(int w, int h);
     void dragEvent(ofDragInfo dragInfo);
     void gotMessage(ofMessage msg);
-    unsigned char getPixel(int frame, int y, int x, int channel);
-    unsigned char getPixel(float frame, float y, float x, int channel);
-    
-    ofImage getFrame(float t, int resX, int resY);
-    void updateFrame();
-    ofMatrix3x3 getRotationMatrix(float xAngle, float yAngle, float zAngle);
-    ofVec3f matMul(ofVec3f vec, ofMatrix3x3 mat);
+
     void outSizeChanged(float & parameter);
     void drawSliceCube();
 
     ofxVideoRecorder    vidRecorder;
     void recordVideo();
-    void drawTimeline();
     void loadVideo();
 
     
@@ -47,26 +40,24 @@ private:
     ofVideoPlayer       movie;
     int                 mFrames, mHeight, mWidth, mChannels, maxDim;
     unsigned char *     cube;
+    slVideoCube *       videoCube;
     
     ofImage             displayed;
-    unsigned char *     frame;
     long                bytesPerRow, bytesPerFrame;
     
+    // TODO: these should all be replaced by a GUI size struct of some sort
     int                 guiWidth, guiHeight;
     int                 previewWidth, previewHeight;
     int                 timelineWidth, timelineHeight;
-    int                 drawHeight, drawWidth, drawX, drawY;
 
-    // gui
+    // Parameter GUI
     ofxPanel            gui;
     ofParameterGroup    transportGroup;
     ofxToggle           playToggle;
     ofParameter<float>  tSlider;
 
     ofParameterGroup    renderGroup;
-    ofParameter<float>  xSlider, ySlider, zSlider;
-    ofParameter<float>  outHeightSlider, outWidthSlider, outXOffset, outYOffset;
-    ofParameter<float>  dirX, dirY;
+    sliceParams         params;
     ofxToggle           hq;
 
     ofParameterGroup    outputGroup;
@@ -74,8 +65,10 @@ private:
     ofxButton           saveButton;
     ofxButton           loadButton;
     
+    // Timeline
+    slTimeline *        timeline;
     
-    
+    // TODO the cube slicer should be its own class
     // 3D cube slicer
     ofEasyCam           cam;
     ofFbo               fbo;
@@ -89,8 +82,10 @@ private:
     int                 outWidth;
     long                bytesPerRowOutput, bytesPerFrameOutput;
     
+    // TODO these should go in their own class too
     ofImage             tv, tvTransparent;
     
     bool                drawGui;
+    int                 loadF;
 
 };

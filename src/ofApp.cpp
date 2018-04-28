@@ -1,5 +1,4 @@
 #include "ofApp.h"
-#include <cstdio>
 
 //--------------------------------------------------------------
 void ofApp::setup(){
@@ -12,10 +11,15 @@ void ofApp::setup(){
     gui.add(loadButton.setup("Load video"));
     loadButton.addListener(this, &ofApp::loadVideo);
     
-    tv.load("/Users/loganw/Desktop/tv.png");
-    tvTransparent.load("/Users/loganw/Desktop/tv_transparent.png");
+    tv.load("images/tv.png");
+    tvTransparent.load("images/tv_transparent.png");
     
     drawGui = true;
+    loadF = 0;
+    
+    videoCube = new slVideoCube;
+    timeline = new slTimeline;
+    timeline->init(videoCube);
 }
 
 void ofApp::loadVideo() {
@@ -31,34 +35,24 @@ void ofApp::loadVideo() {
     
     movie.load(path);
     movie.firstFrame();
+    movie.setPaused(true);
+    movie.play();
+    movie.stop();
+    
     mFrames = movie.getTotalNumFrames();
     mHeight = (int)movie.getHeight();
     mWidth = (int)movie.getWidth();
     maxDim = mHeight > mWidth ? mHeight : mWidth;
     maxDim = mFrames > maxDim ? mFrames : maxDim;
     mChannels = 3;
-    cout << "Video loaded: " << mFrames << " frames @ " << mHeight << " x " << mWidth << ", " << mChannels << " channels.\n";
+    cout << "Video opened: " << mFrames << " frames @ " << mHeight << " x " << mWidth << ", " << mChannels << " channels.\n";
     
-    // Then allocate enough memory to store all of the video in a 3d array, the "cube"
-    bytesPerRow = mChannels * mWidth;
-    bytesPerFrame = bytesPerRow * mHeight;
-    cout << bytesPerFrame << " bytes per frame.\n";
-    long bytesTotal = bytesPerFrame * mFrames;
-    
-    if (bytesTotal/(1024*1024*1024) > 16) {
-        cout << "Video too large, would require " << ((float) (bytesTotal/1024*1024*1024)) << "GB.\n";
-        state = "NOVIDEO";
-        return;
-    }
-    
-    cout << "Allocating memory: " << (bytesTotal/1024*1024*1024) << "GB\n";
-    cube = new unsigned char[bytesTotal];
+    videoCube->init(mFrames, mWidth, mHeight, mChannels);
     
     // Prepare some buffers for storing the preview image and orientation images for the cube
     outWidth = mWidth;
     outHeight = mFrames;
     displayed.allocate(outWidth, outHeight, OF_IMAGE_COLOR);
-    frame = displayed.getPixels().getData();
     bytesPerRowOutput = mChannels * outWidth;
     bytesPerFrameOutput = bytesPerRowOutput * outHeight;
     
@@ -75,15 +69,17 @@ void ofApp::loadVideo() {
     gui.add(playToggle.setup("playing", false));
     
     renderGroup.setName("render");
-    renderGroup.add(xSlider.set("slice x ang", 0, -90, 90));
-    renderGroup.add(ySlider.set("slice y ang", 0, -90, 90));
-    renderGroup.add(zSlider.set("slice z ang", 0, -180, 180));
-    renderGroup.add(dirX.set("movement x ang", 0, -90, 90));
-    renderGroup.add(dirY.set("movement y ang", 0, -90,  90));
-    renderGroup.add(outWidthSlider.set("slice width", mWidth, 100, maxDim));
-    renderGroup.add(outHeightSlider.set("slice height", mFrames, 100, maxDim));
-    renderGroup.add(outXOffset.set("x offset", 0, -maxDim, maxDim));
-    renderGroup.add(outYOffset.set("y offset", 0, -maxDim, maxDim));
+    renderGroup.add(params.xSlider.set("slice x ang", 0, -90, 90));
+    renderGroup.add(params.ySlider.set("slice y ang", 0, -90, 90));
+    renderGroup.add(params.zSlider.set("slice z ang", 0, -180, 180));
+    renderGroup.add(params.dirX.set("movement x ang", 0, -90, 90));
+    renderGroup.add(params.dirY.set("movement y ang", 0, -90,  90));
+    renderGroup.add(params.xSkew.set("x skew", 0, -1, 1));
+    renderGroup.add(params.ySkew.set("y skew", 0, -1, 1));
+    renderGroup.add(params.outWidthSlider.set("slice width", mWidth, 100, maxDim));
+    renderGroup.add(params.outHeightSlider.set("slice height", mFrames, 100, maxDim));
+    renderGroup.add(params.outXOffset.set("x offset", 0, -maxDim, maxDim));
+    renderGroup.add(params.outYOffset.set("y offset", 0, -maxDim, maxDim));
     gui.add(renderGroup);
     gui.add(hq.setup("hq preview", false));
     
@@ -93,10 +89,8 @@ void ofApp::loadVideo() {
     gui.add(outputGroup);
     gui.add(saveButton.setup("save video"));
     
-    // TODO add some preset options
-    
-    outHeightSlider.addListener(this, &ofApp::outSizeChanged);
-    outWidthSlider.addListener(this, &ofApp::outSizeChanged);
+    params.outHeightSlider.addListener(this, &ofApp::outSizeChanged);
+    params.outWidthSlider.addListener(this, &ofApp::outSizeChanged);
     
     saveButton.addListener(this, &ofApp::recordVideo);
     
@@ -113,47 +107,13 @@ void ofApp::loadVideo() {
 }
 
 void ofApp::outSizeChanged(float & parameter) {
-    outWidth = (int) outWidthSlider;
-    outHeight = (int) outHeightSlider;
+    outWidth = (int) params.outWidthSlider;
+    outHeight = (int) params.outHeightSlider;
     
     bytesPerRowOutput = mChannels * outWidth;
     bytesPerFrameOutput = bytesPerRowOutput * outHeight;
     
     windowResized(ofGetWidth(), ofGetHeight());
-}
-
-void ofApp::drawTimeline() {
-    ofSetColor(0, 0, 0);
-    ofDrawRectangle(0, previewHeight, timelineWidth, previewHeight + timelineHeight);
-    ofSetColor(255, 255, 255);
-    
-    float tickInterval = ((float) timelineWidth / (tMax - tMin)) * 100;
-    
-    for (float i = 0; i < timelineWidth; i+= tickInterval) {
-        ofSetColor(64, 127, 64);
-        ofDrawLine(i, previewHeight, i, previewHeight + 12);
-        ofDrawLine(i, previewHeight + timelineHeight - 12, i, previewHeight + timelineHeight);
-    }
-    
-    int timelineDrawHeight = timelineHeight - 30;
-    float aspect = (float) outWidth / outHeight;
-    float tlAspect = (float) timelineWidth / timelineDrawHeight;
-    
-    int n = (int) ceil(tlAspect / aspect);
-    int w = aspect * timelineDrawHeight;
-    
-    ofSetColor(255);
-    for (int i = 0; i < n; i++) {
-        float t = (int) tMin + (tMax - tMin) * ((float) i / (n));
-        getFrame(t, w, timelineDrawHeight).draw(i * w, previewHeight + timelineHeight - 15, w, -timelineDrawHeight);
-    }
-    
-    float scrubberPos = ((float) (tSlider - tMin) / (tMax - tMin)) * timelineWidth;
-    
-    if (scrubberPos > 0 && scrubberPos < timelineWidth + guiWidth) {
-        ofSetColor(127, 255, 127, 200);
-        ofDrawRectangle(scrubberPos-1, previewHeight, 3, timelineHeight);
-    }
 }
 
 //--------------------------------------------------------------
@@ -164,6 +124,9 @@ void ofApp::update(){
         int f = movie.getCurrentFrame();
         
         if (movie.isFrameNew()) {
+            if (loadF > f) {
+                loadF = f;
+            }
             
             cout << "new frame " << f << "\n";
             ofPixels &pixels = movie.getPixels();
@@ -186,13 +149,13 @@ void ofApp::update(){
                 firstFrameImage.update();
             }
             
-            // copy the frame values into a big 3d array at the appropriate spot
-            for (int y = 0; y < mHeight; y++) {
-                for (int x = 0; x < mWidth; x++) {
-                    for (int c = 0; c < mChannels; c++) {
-                        cube[bytesPerFrame * f + bytesPerRow * y + x * mChannels + c] = pixels[bytesPerRow * y + x * mChannels + c];
-                    }
-                }
+            videoCube->addFrame(f, pixels.getData());
+            
+            // TODO figure out why we are sometimes skipping frames when loading (i.e., frame 491 in river_bank.mp4)
+            // for now, this is a hack that just copies the next frame into the right position.
+            // could be improved a bit with linear interpolation, but better to figure out the root cause
+            if (loadF != f) {
+                videoCube->addFrame(loadF, pixels.getData());
             }
             
             lastFrameTex = movie.getTexture();
@@ -200,6 +163,7 @@ void ofApp::update(){
             if (f < mFrames-1) {
                 // get the next frame to do it again
                 movie.nextFrame();
+                loadF++;
             } else {
                 // safe a reference to the last texture
                 // TODO should probably copy this too, because who knows how stable this reference is
@@ -225,7 +189,8 @@ void ofApp::update(){
             }
         }
         
-        updateFrame();
+        displayed = videoCube->getFrame(tSlider, hq, previewWidth, previewHeight, params);
+        displayed.update();
     } else if (state == "SAVING") {
         tSlider = tSlider + 1;
         if (tSlider > tMax) {
@@ -235,115 +200,12 @@ void ofApp::update(){
     }
 }
 
-ofImage ofApp::getFrame(float t, int resX, int resY) {
-    ofImage tmpFrame;
-    tmpFrame.allocate(resX, resY, OF_IMAGE_COLOR);
-    unsigned char * tmpPixels = tmpFrame.getPixels().getData();
-    ofMatrix3x3 transDir = getRotationMatrix(dirX, dirY, 0);
-    
-    ofMatrix3x3 trans = getRotationMatrix(xSlider, ySlider, zSlider);
-    ofVec3f rotated_coords, travel_direction;
-    // I'm not sure if there's an overhead to using ofVec2fs, so I'm using floats.
-    float normal_y, normal_x;
-    float denormal_x, denormal_y, denormal_z;
-    
-    for (int y = 0; y < resY; y++) {
-        for (int x = 0; x < resX; x++) {
-            
-            normal_y = ((((float) y) - ((float) resY)/2) / (((float) resY) / 2)) * (((float) outHeight) / 2);
-            normal_x = ((((float) x) - ((float) resX)/2) / (((float) resX) / 2)) * (((float) outWidth) / 2);
-
-            travel_direction = matMul(ofVec3f(0, 0, t), transDir);
-            
-            rotated_coords = matMul(ofVec3f(normal_x, normal_y, 0), trans);
-            
-            denormal_y = rotated_coords.y + mFrames / 2 + travel_direction.y + outYOffset;
-            denormal_x = rotated_coords.x + mWidth / 2  + travel_direction.x + outXOffset;
-            denormal_z = rotated_coords.z + mHeight / 2 + travel_direction.z;
-            
-            // now apply these values to every  channel
-            if (hq) {
-                for (int c = 0; c < mChannels; c++) {
-                    tmpPixels[(mChannels * resX) * y + x * mChannels + c] = getPixel(denormal_y, denormal_z, denormal_x, c);
-                }
-            } else {
-                for (int c = 0; c < mChannels; c++) {
-                    tmpPixels[(mChannels * resX) * y + x * mChannels + c] = getPixel((int) denormal_y, (int) denormal_z, (int) denormal_x, c);
-                }
-            }
-        }
-    }
-    
-    tmpFrame.update();
-    return tmpFrame;
-}
-
-// get the pixel values of the coordinates on the slice plane
-void ofApp::updateFrame() {
-    displayed = getFrame(tSlider, drawWidth, drawHeight);
-    displayed.update();
-}
-
-// get the value of a pixel within the X-Y-F volume
-unsigned char ofApp::getPixel(int frame, int y, int x, int channel) {
-    if (frame < 0 || frame >= mFrames || x < 0 || x >= mWidth || y < 0 || y >= mHeight) {
-        return 0;
-    } else {
-        return cube[frame * bytesPerFrame + y * bytesPerRow + x * mChannels + channel];
-    }
-}
-
-// get the value of a pixel within the X-Y-F volume, using trilinear interpolation
-unsigned char ofApp::getPixel(float frame, float y, float x, int channel) {
-    // these thresholds are different so that we have a smooth fade to black at the sides.
-    if (frame < -1 || frame > mFrames + 1 || x < -1 || x > mWidth + 1 || y < -1 || y > mHeight + 1) {
-        return 0;
-    } else {
-        // tri-linear interpolation
-
-        int fl = (int) floor(frame);
-        int fh = (int) ceil(frame);
-        int xl = (int) floor(x);
-        int xh = (int) ceil(x);
-        int yl = (int) floor(y);
-        int yh = (int) ceil(y);
-        
-        unsigned char c000 = getPixel(fl, yl, xl, channel);
-        unsigned char c001 = getPixel(fh, yl, xl, channel);
-        unsigned char c010 = getPixel(fl, yh, xl, channel);
-        unsigned char c100 = getPixel(fl, yl, xh, channel);
-        unsigned char c011 = getPixel(fh, yh, xl, channel);
-        unsigned char c101 = getPixel(fh, yl, xh, channel);
-        unsigned char c110 = getPixel(fl, yh, xh, channel);
-        unsigned char c111 = getPixel(fh, yh, xh, channel);
-        
-        float xd = x - xl;
-        float yd = y - yl;
-        float fd = frame - fl;
-        
-        float c00 = c000 * (1 - xd) + c100 * xd;
-        float c01 = c001 * (1 - xd) + c101 * xd;
-        float c10 = c010 * (1 - xd) + c110 * xd;
-        float c11 = c011 * (1 - xd) + c111 * xd;
-        
-        float c0 = c00 * (1 - yd) + c10 * yd;
-        float c1 = c01 * (1 - yd) + c11 * yd;
-        
-        return ((unsigned char) c0 * (1 - fd) + c1 * fd);
-    }
-}
-
 //--------------------------------------------------------------
 void ofApp::draw(){
-    // blue-ish gray background
-    
-    
     if (state == "LOADING") {
         ofBackground(20,40, 30);
         int f = movie.getCurrentFrame();
-        ofSetColor(255,255,255);
-//        movie.draw(guiWidth + drawX, drawY, drawWidth, drawHeight);
-        ofSetColor(255, 119, 35, 200);
+        ofSetColor(127, 255, 127);
         ofDrawBitmapString("loading frame " + ofToString(f) + "/" + ofToString(mFrames), 20, 20);
         
         ofSetColor(255, 255, 255);
@@ -359,15 +221,17 @@ void ofApp::draw(){
         ofSetColor(255, 255, 255);
         tv.draw(guiWidth, 0, previewWidth, previewHeight);
         displayed.draw(guiWidth + previewWidth*.095, .128*previewHeight + .62 * previewHeight, .8*previewWidth, -.62 * previewHeight);
-//        displayed.draw(guiWidth + drawX, previewHeight - drawY, drawWidth, -drawHeight);
 
         // Draw 3D reference cube
         drawSliceCube();
         fbo.draw(0,0);
         ofSetColor(255,255,255);
         tvTransparent.draw(0,0,guiWidth,guiHeight);
-        
-        drawTimeline();
+
+        // Draw timeline
+        timeline->setTBounds(tMin, tMax);
+        timeline->setParams(params);
+        timeline->draw(0, guiHeight, timelineWidth, timelineHeight, tSlider);
         
         // Draw GUI for adjusting parameters
         if (drawGui) {
@@ -378,16 +242,19 @@ void ofApp::draw(){
         ofBackground(0,0,0);
         // Draw preview output image
         ofSetColor(255, 255, 255);
-        displayed = getFrame(tSlider, outWidth, outHeight);
+        displayed = videoCube->getFrame(tSlider, hq, outWidth, outHeight, params);
         displayed.mirror(true, false);
         displayed.update();
-        displayed.draw(guiWidth + drawX, previewHeight - drawY, drawWidth, -drawHeight);
-        
+        tv.draw(guiWidth, 0, previewWidth, previewHeight);
+        displayed.draw(guiWidth + previewWidth*.095, .128*previewHeight + .62 * previewHeight, .8*previewWidth, -.62 * previewHeight);
+
         // Draw 3D reference cube
         drawSliceCube();
         fbo.draw(0,0);
         
-        drawTimeline();
+        timeline->setTBounds(tMin, tMax);
+        timeline->setParams(params);
+        timeline->draw(0, guiHeight, timelineWidth, timelineHeight, tSlider);
     
         vidRecorder.addFrame(displayed.getPixels());
     } else if (state == "NOVIDEO") {
@@ -407,17 +274,17 @@ void ofApp::drawSliceCube() {
     
     if (state == "PLAYING" || state == "SAVING") {
         // Draw plane
-        ofMatrix3x3 transDir = getRotationMatrix(dirX, dirY, zSlider);
+        ofMatrix3x3 transDir = getRotationMatrix(params.dirX, params.dirY, params.zSlider);
         ofVec3f travel_normal = matMul(ofVec3f(0,0,1), transDir);
         ofVec3f travel_direction = travel_normal * tSlider;
-        ofVec3f start_position = ofVec3f(travel_direction.x + outXOffset, travel_direction.y + outYOffset, travel_direction.z);
+        ofVec3f start_position = ofVec3f(travel_direction.x + params.outXOffset, travel_direction.y + params.outYOffset, travel_direction.z);
         
         slice.resizeToTexture(displayed.getTexture());
         slice.setHeight(outHeight);
         slice.setWidth(outWidth);
         displayed.getTexture().bind();
         ofSetColor(255, 255, 255, 200);
-        slice.setOrientation(ofVec3f(xSlider, ySlider, zSlider));
+        slice.setOrientation(ofVec3f(params.xSlider, params.ySlider, params.zSlider));
         
         slice.setPosition(start_position);
         slice.draw();
@@ -537,22 +404,6 @@ void ofApp::windowResized(int w, int h){
     
     previewWidth = (int) (0.5 * (float) w);
     previewHeight = (int) (7.0/8.0 * (float) h);
-    float previewAspect = (float) previewWidth / previewHeight;
-    float frameAspect = (float) outWidth / outHeight;
-    if (previewAspect < frameAspect) {
-        // letterbox top and bottom
-        drawHeight = previewWidth / frameAspect;
-        drawWidth = previewWidth;
-        
-        drawX = 0;
-        drawY = (previewHeight - drawHeight) / 2;
-    } else {
-        drawWidth = previewHeight * frameAspect;
-        drawHeight = previewHeight;
-        
-        drawX = (previewWidth - drawWidth) / 2;
-        drawY = 0;
-    }
     
     timelineWidth = w;
     timelineHeight = (int) (1.0/8.0 * (float) h);
@@ -566,8 +417,7 @@ void ofApp::windowResized(int w, int h){
     }
     
     displayed = ofImage();
-    displayed.allocate(drawWidth, drawHeight, OF_IMAGE_COLOR);
-    frame = displayed.getPixels().getData();
+    displayed.allocate(previewWidth, previewHeight, OF_IMAGE_COLOR);
 }
 
 //--------------------------------------------------------------
@@ -602,24 +452,4 @@ void ofApp::recordVideo() {
     tSlider = tMin - 1;
 }
 
-//--------------------------------------------------------------
-// linear algebra helper functions
-
-// makes a 3x3 rotation matrix (XYZ application order)
-ofMatrix3x3 ofApp::getRotationMatrix(float xAngle, float yAngle, float zAngle) {
-    ofMatrix3x3 xMatrix = ofMatrix3x3(1, 0              , 0,
-                                      0, cosd(xAngle)   , -sind(xAngle),
-                                      0, sind(xAngle)   , cosd(xAngle));
-    
-    ofMatrix3x3 yMatrix = ofMatrix3x3(cosd(yAngle), 0, sind(yAngle), 0, 1, 0, -sind(yAngle), 0, cosd(yAngle));
-    ofMatrix3x3 zMatrix = ofMatrix3x3(cosd(zAngle), -sind(zAngle), 0, sind(zAngle), cosd(zAngle), 0, 0, 0, 1);
-    return yMatrix * zMatrix * xMatrix;
-}
-
-// multiply a 1x3 vector and a 3x3 matrix, producing a 1x3 vector
-ofVec3f ofApp::matMul(ofVec3f vec, ofMatrix3x3 mat) {
-    return ofVec3f(mat.a * vec.x + mat.b * vec.y + mat.c * vec.z,
-                   mat.d * vec.x + mat.e * vec.y + mat.f * vec.z,
-                   mat.g * vec.x + mat.h * vec.y + mat.i * vec.z);
-}
 
