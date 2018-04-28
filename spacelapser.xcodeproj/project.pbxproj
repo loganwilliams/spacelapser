@@ -102,6 +102,24 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		2EAD801120952855001F4A49 /* ofxVideoRecorder */ = {
+			isa = PBXGroup;
+			children = (
+				2EFF2BFF20890EB0008A5FA9 /* ofxVideoRecorder.h */,
+				2EFF2BFD20890EAB008A5FA9 /* ofxVideoRecorder.cpp */,
+			);
+			path = ofxVideoRecorder;
+			sourceTree = "<group>";
+		};
+		2EAD801220952885001F4A49 /* gui */ = {
+			isa = PBXGroup;
+			children = (
+				2EAD8008209400C1001F4A49 /* slTimeline.h */,
+				2EAD8007209400C1001F4A49 /* slTimeline.cpp */,
+			);
+			path = gui;
+			sourceTree = "<group>";
+		};
 		480A780D8D0308AE4A368801 /* ofxGui */ = {
 			isa = PBXGroup;
 			children = (
@@ -173,18 +191,16 @@
 		E4B69E1C0A3A1BDC003C02F2 /* src */ = {
 			isa = PBXGroup;
 			children = (
-				2EFF2BFF20890EB0008A5FA9 /* ofxVideoRecorder.h */,
-				2EFF2BFD20890EAB008A5FA9 /* ofxVideoRecorder.cpp */,
 				E4B69E1D0A3A1BDC003C02F2 /* main.cpp */,
 				E4B69E1F0A3A1BDC003C02F2 /* ofApp.h */,
 				E4B69E1E0A3A1BDC003C02F2 /* ofApp.cpp */,
 				2EAD801020941A45001F4A49 /* slSliceParams.h */,
-				2EAD800D209405AF001F4A49 /* slLinearAlgebra.cpp */,
 				2EAD800E209405AF001F4A49 /* slLinearAlgebra.h */,
-				2EAD800A20940361001F4A49 /* slVideoCube.cpp */,
+				2EAD800D209405AF001F4A49 /* slLinearAlgebra.cpp */,
 				2EAD800B20940361001F4A49 /* slVideoCube.h */,
-				2EAD8007209400C1001F4A49 /* slTimeline.cpp */,
-				2EAD8008209400C1001F4A49 /* slTimeline.h */,
+				2EAD800A20940361001F4A49 /* slVideoCube.cpp */,
+				2EAD801220952885001F4A49 /* gui */,
+				2EAD801120952855001F4A49 /* ofxVideoRecorder */,
 			);
 			path = src;
 			sourceTree = SOURCE_ROOT;

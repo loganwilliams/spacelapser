@@ -3,7 +3,6 @@
 //  ofxVideoRecorderExample
 //
 //  Created by Timothy Scaffidi on 9/23/12.
-//  Copyright (c) 2012 __MyCompanyName__. All rights reserved.
 //
 
 #include "ofxVideoRecorder.h"

@@ -9,6 +9,7 @@
 
 struct sliceParams {
     ofParameter<float>  xSlider, ySlider, zSlider, xSkew, ySkew;
-    ofParameter<float>  outHeightSlider, outWidthSlider, outXOffset, outYOffset;
+    ofParameter<int>    outHeightSlider, outWidthSlider;
+    ofParameter<float>  outXOffset, outYOffset;
     ofParameter<float>  dirX, dirY;
 };

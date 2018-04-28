@@ -32,8 +32,8 @@ bool slVideoCube::init(int mFrames, int mWidth, int mHeight, int mChannels) {
     return true;
 }
 
+// adds frame number f to the video cube.
 void slVideoCube::addFrame(int f, unsigned char * pixels) {
-    // copy the frame values into a big 3d array at the appropriate spot
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             for (int c = 0; c < channels; c++) {
@@ -43,7 +43,9 @@ void slVideoCube::addFrame(int f, unsigned char * pixels) {
     }
 }
 
-ofImage slVideoCube::getFrame(float t, bool hq, int resX, int resY, sliceParams params) {
+// get a complete frame of size resX x resY from the video cube, using the slice parameters provided
+// at the t value provided.
+ofImage slVideoCube::getFrame(float t, bool interpolate, int resX, int resY, sliceParams params) {
     ofImage tmpFrame;
     tmpFrame.allocate(resX, resY, OF_IMAGE_COLOR);
 
@@ -70,7 +72,7 @@ ofImage slVideoCube::getFrame(float t, bool hq, int resX, int resY, sliceParams 
             denormal_z = rotated_coords.z + height / 2 + travel_direction.z;
 
             // now apply these values to every  channel
-            if (hq) {
+            if (interpolate) {
                 for (int c = 0; c < channels; c++) {
                     tmpPixels[(channels * resX) * y + x * channels + c] = getPixel(denormal_y, denormal_z - denormal_y * params.ySkew, denormal_x - denormal_y * params.xSkew, c);
                 }

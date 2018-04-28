@@ -14,6 +14,9 @@ public:
     void update();
     void draw();
     
+    void recordVideo();
+    void loadVideo();
+    
     void keyPressed(int key);
     void keyReleased(int key);
     void mouseMoved(int x, int y );
@@ -26,23 +29,21 @@ public:
     void dragEvent(ofDragInfo dragInfo);
     void gotMessage(ofMessage msg);
 
-    void outSizeChanged(float & parameter);
+    // TODO should go in its own class
     void drawSliceCube();
-
-    ofxVideoRecorder    vidRecorder;
-    void recordVideo();
-    void loadVideo();
-
     
 private:
     string              state;
-
+    
+    // Loading and saving
     ofVideoPlayer       movie;
+    int                 loadF;
+    ofxVideoRecorder    vidRecorder;
+    
+    // TODO these shouldn't all be necessary once the slice cube is its own class
     int                 mFrames, mHeight, mWidth, mChannels, maxDim;
-    unsigned char *     cube;
     slVideoCube *       videoCube;
     
-    ofImage             displayed;
     long                bytesPerRow, bytesPerFrame;
     
     // TODO: these should all be replaced by a GUI size struct of some sort
@@ -51,6 +52,7 @@ private:
     int                 timelineWidth, timelineHeight;
 
     // Parameter GUI
+    bool                drawGui;
     ofxPanel            gui;
     ofParameterGroup    transportGroup;
     ofxToggle           playToggle;
@@ -73,19 +75,11 @@ private:
     ofEasyCam           cam;
     ofFbo               fbo;
     ofPlanePrimitive    slice;
-    ofPlanePrimitive    firstFrame;
-    ofImage             firstFrameImage;
-    ofPlanePrimitive    lastFrame;
-    ofTexture           lastFrameTex;
-
-    int                 outHeight;
-    int                 outWidth;
-    long                bytesPerRowOutput, bytesPerFrameOutput;
+    ofPlanePrimitive    firstFrame, lastFrame;
+    ofTexture           firstFrameTex, lastFrameTex;
     
-    // TODO these should go in their own class too
-    ofImage             tv, tvTransparent;
-    
-    bool                drawGui;
-    int                 loadF;
+    // TODO this should be in the display preview class
+    ofImage             displayed;
+    ofImage             tv;
 
 };

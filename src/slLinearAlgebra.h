@@ -2,6 +2,8 @@
 //  slLinearAlgebra.hpp
 //  spacelapser
 //
+//  Some helper linear algebra functions for making a 3D rotation matrix and applying it to a vector.
+//
 //  Created by Logan Williams on 4/27/18.
 //
 

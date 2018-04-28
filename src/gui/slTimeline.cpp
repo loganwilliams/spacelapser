@@ -7,7 +7,7 @@
 
 #include "slTimeline.h"
 
-void slTimeline::init(slVideoCube * cube) {
+slTimeline::slTimeline(slVideoCube * cube) {
     videoCube = cube;
 }
 
@@ -52,4 +52,7 @@ void slTimeline::draw(int x, int y, int width, int height, int t) {
         ofSetColor(127, 255, 127, 200);
         ofDrawRectangle(scrubberPos-1, y, 3, height);
     }
+    
+    // reset color
+    ofSetColor(255, 255, 255);
 }

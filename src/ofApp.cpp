@@ -11,15 +11,13 @@ void ofApp::setup(){
     gui.add(loadButton.setup("Load video"));
     loadButton.addListener(this, &ofApp::loadVideo);
     
-    tv.load("images/tv.png");
-    tvTransparent.load("images/tv_transparent.png");
+    tv.load("images/tv_transparent.png");
     
     drawGui = true;
     loadF = 0;
     
     videoCube = new slVideoCube;
-    timeline = new slTimeline;
-    timeline->init(videoCube);
+    timeline = new slTimeline(videoCube);
 }
 
 void ofApp::loadVideo() {
@@ -50,13 +48,7 @@ void ofApp::loadVideo() {
     videoCube->init(mFrames, mWidth, mHeight, mChannels);
     
     // Prepare some buffers for storing the preview image and orientation images for the cube
-    outWidth = mWidth;
-    outHeight = mFrames;
-    displayed.allocate(outWidth, outHeight, OF_IMAGE_COLOR);
-    bytesPerRowOutput = mChannels * outWidth;
-    bytesPerFrameOutput = bytesPerRowOutput * outHeight;
-    
-    firstFrameImage.allocate(mWidth, mHeight, OF_IMAGE_COLOR);
+    displayed.allocate(mWidth, mFrames, OF_IMAGE_COLOR);
     
     // setup the GUI
     gui.setup();
@@ -89,29 +81,17 @@ void ofApp::loadVideo() {
     gui.add(outputGroup);
     gui.add(saveButton.setup("save video"));
     
-    params.outHeightSlider.addListener(this, &ofApp::outSizeChanged);
-    params.outWidthSlider.addListener(this, &ofApp::outSizeChanged);
-    
     saveButton.addListener(this, &ofApp::recordVideo);
     
+    // TODO this should go in a separate slSliceCube class
     // setup the camera
     cam.setPosition(500, 500, 500);
     cam.lookAt(ofVec3f(0,0,0));
     
     // set up the 3D planes
-    slice.set(outWidth, outHeight);
-    lastFrame.set(mWidth, mHeight);
-    firstFrame.set(mWidth, mHeight);
-    
-    windowResized(ofGetWidth(), ofGetHeight());
-}
-
-void ofApp::outSizeChanged(float & parameter) {
-    outWidth = (int) params.outWidthSlider;
-    outHeight = (int) params.outHeightSlider;
-    
-    bytesPerRowOutput = mChannels * outWidth;
-    bytesPerFrameOutput = bytesPerRowOutput * outHeight;
+//    slice.set(outWidth, outHeight);
+//    lastFrame.set(mWidth, mHeight);
+//    firstFrame.set(mWidth, mHeight);
     
     windowResized(ofGetWidth(), ofGetHeight());
 }
@@ -132,21 +112,9 @@ void ofApp::update(){
             ofPixels &pixels = movie.getPixels();
             
             if (f == 0) {
-                // copy the first frame into a new image buffer and store it for later
-                // TODO there should be a cleaner way of making a real copy of these
-                ofPixels &copyRef = firstFrameImage.getPixels();
-                
-                for (int y = 0; y < mHeight; y++) {
-                    for (int x = 0; x < mWidth; x++) {
-                        for (int c = 0; c < mChannels; c++) {
-                            copyRef[bytesPerRow * y + x * mChannels + c] = pixels[bytesPerRow * y + x * mChannels + c];
-                            
-                        }
-                    }
-                }
-                
-                firstFrameImage.setFromPixels(copyRef);
-                firstFrameImage.update();
+                ofImage tmp;
+                tmp.setFromPixels(pixels);
+                firstFrameTex = tmp.getTexture();
             }
             
             videoCube->addFrame(f, pixels.getData());
@@ -158,6 +126,7 @@ void ofApp::update(){
                 videoCube->addFrame(loadF, pixels.getData());
             }
             
+            // copy the last frame that has been loaded into a texture
             lastFrameTex = movie.getTexture();
             
             if (f < mFrames-1) {
@@ -165,9 +134,6 @@ void ofApp::update(){
                 movie.nextFrame();
                 loadF++;
             } else {
-                // safe a reference to the last texture
-                // TODO should probably copy this too, because who knows how stable this reference is
-                // that said, it seems to work
                 movie.close();
                 state = "PLAYING";
                 windowResized(ofGetWidth(), ofGetHeight());
@@ -196,13 +162,27 @@ void ofApp::update(){
         if (tSlider > tMax) {
             vidRecorder.close();
             state = "PLAYING";
+            hq = false;
+            drawGui = true;
         }
+        
+        displayed = videoCube->getFrame(tSlider, hq, params.outWidthSlider, params.outHeightSlider, params);
+        displayed.mirror(true, false);
+        displayed.update();
+        vidRecorder.addFrame(displayed.getPixels());
     }
 }
 
 //--------------------------------------------------------------
 void ofApp::draw(){
-    if (state == "LOADING") {
+    ofBackground(0,0,0);
+    ofSetColor(255, 255, 255);
+
+    if (state == "NOVIDEO") {
+        ofBackground(20,40, 30);
+        gui.draw();
+        
+    } else if (state == "LOADING") {
         ofBackground(20,40, 30);
         int f = movie.getCurrentFrame();
         ofSetColor(127, 255, 127);
@@ -212,13 +192,8 @@ void ofApp::draw(){
         drawSliceCube();
         fbo.draw(0,0);
   
-    } else if (state == "PLAYING") {
-        ofBackground(0,0,0);
-        ofSetColor(0,0,0);
-        ofDrawRectangle(guiWidth, 0, previewWidth, previewHeight);
-        
+    } else if (state == "PLAYING" || state == "SAVING") {
         // Draw preview output image
-        ofSetColor(255, 255, 255);
         tv.draw(guiWidth, 0, previewWidth, previewHeight);
         displayed.draw(guiWidth + previewWidth*.095, .128*previewHeight + .62 * previewHeight, .8*previewWidth, -.62 * previewHeight);
 
@@ -226,7 +201,7 @@ void ofApp::draw(){
         drawSliceCube();
         fbo.draw(0,0);
         ofSetColor(255,255,255);
-        tvTransparent.draw(0,0,guiWidth,guiHeight);
+        tv.draw(0,0,guiWidth,guiHeight);
 
         // Draw timeline
         timeline->setTBounds(tMin, tMax);
@@ -235,32 +210,8 @@ void ofApp::draw(){
         
         // Draw GUI for adjusting parameters
         if (drawGui) {
-            ofSetColor(255, 255, 255);
             gui.draw();
         }
-    } else if (state == "SAVING") {
-        ofBackground(0,0,0);
-        // Draw preview output image
-        ofSetColor(255, 255, 255);
-        displayed = videoCube->getFrame(tSlider, hq, outWidth, outHeight, params);
-        displayed.mirror(true, false);
-        displayed.update();
-        tv.draw(guiWidth, 0, previewWidth, previewHeight);
-        displayed.draw(guiWidth + previewWidth*.095, .128*previewHeight + .62 * previewHeight, .8*previewWidth, -.62 * previewHeight);
-
-        // Draw 3D reference cube
-        drawSliceCube();
-        fbo.draw(0,0);
-        
-        timeline->setTBounds(tMin, tMax);
-        timeline->setParams(params);
-        timeline->draw(0, guiHeight, timelineWidth, timelineHeight, tSlider);
-    
-        vidRecorder.addFrame(displayed.getPixels());
-    } else if (state == "NOVIDEO") {
-        ofBackground(20,40, 30);
-        ofSetColor(255, 255, 255);
-        gui.draw();
     }
 }
 
@@ -280,8 +231,8 @@ void ofApp::drawSliceCube() {
         ofVec3f start_position = ofVec3f(travel_direction.x + params.outXOffset, travel_direction.y + params.outYOffset, travel_direction.z);
         
         slice.resizeToTexture(displayed.getTexture());
-        slice.setHeight(outHeight);
-        slice.setWidth(outWidth);
+        slice.setHeight(params.outHeightSlider);
+        slice.setWidth(params.outWidthSlider);
         displayed.getTexture().bind();
         ofSetColor(255, 255, 255, 200);
         slice.setOrientation(ofVec3f(params.xSlider, params.ySlider, params.zSlider));
@@ -303,32 +254,32 @@ void ofApp::drawSliceCube() {
     ofDrawBox(mWidth, mFrames, mHeight);
     
     // Draw first frame of the movie on the bottom of the box
-    firstFrame.resizeToTexture(firstFrameImage.getTexture());
+    firstFrame.resizeToTexture(firstFrameTex);
     firstFrame.setPosition(0,-mFrames/2, 0);
     firstFrame.setOrientation(ofVec3f(90, 0, 0));
     firstFrame.setHeight(mHeight);
     firstFrame.setWidth(mWidth);
     
-    firstFrameImage.getTexture().bind();
+    firstFrameTex.bind();
     ofSetColor(255,255,255,127);
     if (state == "LOADING") {
         ofSetColor(255,255,255,200);
     }
     firstFrame.draw();
-    firstFrameImage.unbind();
+    firstFrameTex.unbind();
     
     // Draw last frame of the movie on the top of the box
     if (state == "LOADING") {
-        lastFrame.resizeToTexture(movie.getTexture());
+        lastFrame.resizeToTexture(lastFrameTex);
         lastFrame.setPosition(0, -mFrames/2 + movie.getCurrentFrame(), 0);
         lastFrame.setOrientation(ofVec3f(90, 0, 0));
         lastFrame.setHeight(mHeight);
         lastFrame.setWidth(mWidth);
 
-        movie.getTexture().bind();
+        lastFrameTex.bind();
         ofSetColor(255,255,255,200);
         lastFrame.draw();
-        movie.getTexture().unbind();
+        lastFrameTex.unbind();
     } else {
         lastFrame.resizeToTexture(lastFrameTex);
         lastFrame.setPosition(0, mFrames/2, 0);
@@ -349,7 +300,7 @@ void ofApp::drawSliceCube() {
 
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key){
-    if (key == ' ') {
+    if (key == ' ' && state != "SAVING") {
         drawGui = !drawGui;
     }
 }
@@ -416,7 +367,6 @@ void ofApp::windowResized(int w, int h){
         fbo.allocate(guiWidth - previewWidth*.095, guiHeight - previewHeight*.128, GL_RGB);
     }
     
-    displayed = ofImage();
     displayed.allocate(previewWidth, previewHeight, OF_IMAGE_COLOR);
 }
 
@@ -433,6 +383,7 @@ void ofApp::dragEvent(ofDragInfo dragInfo){
 void ofApp::recordVideo() {
     cout << "recording video \n";
     hq = true;
+    drawGui = false;
     vidRecorder.setVideoCodec("mpeg4");
     vidRecorder.setVideoBitrate("40000k");
     
@@ -447,9 +398,7 @@ void ofApp::recordVideo() {
         return;
     }
     
-    vidRecorder.setup(path, outWidth, outHeight, 30);
+    vidRecorder.setup(path, params.outWidthSlider, params.outHeightSlider, 30);
     vidRecorder.start();
     tSlider = tMin - 1;
 }
-
-
