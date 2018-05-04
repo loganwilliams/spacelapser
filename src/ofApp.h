@@ -7,6 +7,9 @@
 #include "slVideoCube.h"
 #include "slLinearAlgebra.h"
 #include "slSliceParams.h"
+#include "slCubeView.h"
+
+enum class State{NoVideo, Loading, Playing, Saving};
 
 class ofApp : public ofBaseApp{
 public:
@@ -16,6 +19,7 @@ public:
     
     void recordVideo();
     void loadVideo();
+    void matchMovement(float& parameter);
     
     void keyPressed(int key);
     void keyReleased(int key);
@@ -28,21 +32,15 @@ public:
     void windowResized(int w, int h);
     void dragEvent(ofDragInfo dragInfo);
     void gotMessage(ofMessage msg);
-
-    // TODO should go in its own class
-    void drawSliceCube();
     
 private:
-    string              state;
-    
+    State               state;
+    slVideoCube *       videoCube;
+
     // Loading and saving
     ofVideoPlayer       movie;
     int                 loadF;
     ofxVideoRecorder    vidRecorder;
-    
-    // TODO these shouldn't all be necessary once the slice cube is its own class
-    int                 mFrames, mHeight, mWidth, mChannels, maxDim;
-    slVideoCube *       videoCube;
     
     long                bytesPerRow, bytesPerFrame;
     
@@ -59,6 +57,7 @@ private:
     ofParameter<float>  tSlider;
 
     ofParameterGroup    renderGroup;
+    ofParameterGroup    advancedGroup;
     sliceParams         params;
     ofxToggle           hq;
 
@@ -67,16 +66,9 @@ private:
     ofxButton           saveButton;
     ofxButton           loadButton;
     
-    // Timeline
+    // Other GUI elements
     slTimeline *        timeline;
-    
-    // TODO the cube slicer should be its own class
-    // 3D cube slicer
-    ofEasyCam           cam;
-    ofFbo               fbo;
-    ofPlanePrimitive    slice;
-    ofPlanePrimitive    firstFrame, lastFrame;
-    ofTexture           firstFrameTex, lastFrameTex;
+    slCubeView *        cubeView;
     
     // TODO this should be in the display preview class
     ofImage             displayed;
