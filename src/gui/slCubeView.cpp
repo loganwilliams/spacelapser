@@ -32,13 +32,13 @@ void slCubeView::setT(float newT) {
 }
 
 void slCubeView::setSize(int width, int height) {
-    fbo.allocate(width, height, GL_RGB);
+    fbo.allocate(width, height);
 }
 
 ofFbo slCubeView::render(float t, ofTexture tex, bool drawSlice) {
     // start and clear the buffer we are drawing in to
     fbo.begin();
-    ofClear(20,40,30,0);
+    ofClear(20,40,30,255);
     ofSetColor(255, 255, 255);
     
     cam.setLensOffset(ofVec2f(-0.15, 0));

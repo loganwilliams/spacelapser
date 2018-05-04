@@ -20,27 +20,22 @@ bool slVideoCube::init(int mFrames, int mWidth, int mHeight, int mChannels) {
     long bytesTotal = bytesPerFrame * frames;
     
     if (bytesTotal/(1024*1024*1024) > 16) {
-        cout << "Video too large, would require " << ((float) (bytesTotal/1024*1024*1024)) << "GB.\n";
+        cout << "Video too large, would require " << ((float) (bytesTotal/(1024*1024*1024))) << "GB.\n";
         return false;
     }
     
-    cout << "Allocating memory: " << (bytesTotal/1024*1024*1024) << "GB\n";
-    if (cube) {
+    cout << "Allocating memory: " << ((float) bytesTotal/(1024*1024*1024)) << "GB\n";
+    if (initialized) {
         delete cube;
     }
     cube = new unsigned char[bytesTotal];
+    initialized = true;
     return true;
 }
 
 // adds frame number f to the video cube.
 void slVideoCube::addFrame(int f, unsigned char * pixels) {
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            for (int c = 0; c < channels; c++) {
-                cube[bytesPerFrame * f + bytesPerRow * y + x * channels + c] = pixels[bytesPerRow * y + x * channels + c];
-            }
-        }
-    }
+    memcpy(cube + bytesPerFrame * f, pixels, bytesPerFrame);
 }
 
 // get a complete frame of size resX x resY from the video cube, using the slice parameters provided
@@ -54,6 +49,7 @@ ofImage slVideoCube::getFrame(float t, bool interpolate, int resX, int resY, sli
     
     ofMatrix3x3 trans = getRotationMatrix(params.xSlider, params.ySlider, params.zSlider);
     ofVec3f rotated_coords, travel_direction;
+    travel_direction = matMul(ofVec3f(0, 0, t), transDir);
     // I'm not sure if there's an overhead to using ofVec2fs, so I'm using floats.
     float normal_y, normal_x;
     float denormal_x, denormal_y, denormal_z;
@@ -62,8 +58,6 @@ ofImage slVideoCube::getFrame(float t, bool interpolate, int resX, int resY, sli
         for (int x = 0; x < resX; x++) {
             normal_y = ((((float) y) - ((float) resY)/2) / (((float) resY) / 2)) * (((float) params.outHeightSlider) / 2);
             normal_x = ((((float) x) - ((float) resX)/2) / (((float) resX) / 2)) * (((float) params.outWidthSlider) / 2);
-
-            travel_direction = matMul(ofVec3f(0, 0, t), transDir);
 
             rotated_coords = matMul(ofVec3f(normal_x, normal_y, 0), trans);
 
@@ -88,6 +82,15 @@ ofImage slVideoCube::getFrame(float t, bool interpolate, int resX, int resY, sli
     return tmpFrame;
 }
 
+ofImage slVideoCube::getFrame(int frame) {
+    ofImage tmpFrame;
+    tmpFrame.allocate(width, height, OF_IMAGE_COLOR);
+    tmpFrame.setFromPixels(cube + bytesPerFrame*frame, width, height, OF_IMAGE_COLOR);
+    
+    tmpFrame.update();
+    return tmpFrame;
+}
+
 
 // get the value of a pixel within the X-Y-F volume
 unsigned char slVideoCube::getPixel(int frame, int y, int x, int channel) {
@@ -98,14 +101,16 @@ unsigned char slVideoCube::getPixel(int frame, int y, int x, int channel) {
     }
 }
 
+unsigned char slVideoCube::getPixelUnsafe(int frame, int y, int x, int channel) {
+    return cube[frame * bytesPerFrame + y * bytesPerRow + x * channels + channel];
+}
+
 // get the value of a pixel within the X-Y-F volume, using trilinear interpolation
 unsigned char slVideoCube::getPixel(float frame, float y, float x, int channel) {
     // these thresholds are different so that we have a smooth fade to black at the sides.
-    if (frame < -1 || frame > frames + 1 || x < -1 || x > width + 1 || y < -1 || y > height + 1) {
+    if (frame < -1 || frame > frames || x < -1 || x > width || y < -1 || y > height ) {
         return 0;
-    } else {
-        // tri-linear interpolation
-        
+    } else if (frame < 0 || frame >= frames - 1 || x < 0 || x >= width - 1 || y < 0 || y >= height - 1) {
         int fl = (int) floor(frame);
         int fh = (int) ceil(frame);
         int xl = (int) floor(x);
@@ -121,6 +126,38 @@ unsigned char slVideoCube::getPixel(float frame, float y, float x, int channel) 
         unsigned char c101 = getPixel(fh, yl, xh, channel);
         unsigned char c110 = getPixel(fl, yh, xh, channel);
         unsigned char c111 = getPixel(fh, yh, xh, channel);
+        
+        float xd = x - xl;
+        float yd = y - yl;
+        float fd = frame - fl;
+        
+        float c00 = c000 * (1 - xd) + c100 * xd;
+        float c01 = c001 * (1 - xd) + c101 * xd;
+        float c10 = c010 * (1 - xd) + c110 * xd;
+        float c11 = c011 * (1 - xd) + c111 * xd;
+        
+        float c0 = c00 * (1 - yd) + c10 * yd;
+        float c1 = c01 * (1 - yd) + c11 * yd;
+        
+        return ((unsigned char) c0 * (1 - fd) + c1 * fd);
+    } else {
+        // tri-linear interpolation
+        
+        int fl = (int) floor(frame);
+        int fh = (int) ceil(frame);
+        int xl = (int) floor(x);
+        int xh = (int) ceil(x);
+        int yl = (int) floor(y);
+        int yh = (int) ceil(y);
+        
+        unsigned char c000 = getPixelUnsafe(fl, yl, xl, channel);
+        unsigned char c001 = getPixelUnsafe(fh, yl, xl, channel);
+        unsigned char c010 = getPixelUnsafe(fl, yh, xl, channel);
+        unsigned char c100 = getPixelUnsafe(fl, yl, xh, channel);
+        unsigned char c011 = getPixelUnsafe(fh, yh, xl, channel);
+        unsigned char c101 = getPixelUnsafe(fh, yl, xh, channel);
+        unsigned char c110 = getPixelUnsafe(fl, yh, xh, channel);
+        unsigned char c111 = getPixelUnsafe(fh, yh, xh, channel);
         
         float xd = x - xl;
         float yd = y - yl;

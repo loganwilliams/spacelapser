@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		1CD33E884D9E3358252E82A1 /* ofxToggle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 907C5B5E104864A2D3A25745 /* ofxToggle.cpp */; };
+		2E75D01E2099886300813C57 /* slCubeView.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E75D01C2099886300813C57 /* slCubeView.cpp */; };
 		2EAD8009209400C1001F4A49 /* slTimeline.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2EAD8007209400C1001F4A49 /* slTimeline.cpp */; };
 		2EAD800C20940361001F4A49 /* slVideoCube.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2EAD800A20940361001F4A49 /* slVideoCube.cpp */; };
 		2EAD800F209405AF001F4A49 /* slLinearAlgebra.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2EAD800D209405AF001F4A49 /* slLinearAlgebra.cpp */; };
@@ -59,6 +60,8 @@
 		17E65988300FBD9AAA2CD0CA /* ofxGui.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 30; name = ofxGui.h; path = ../../../addons/ofxGui/src/ofxGui.h; sourceTree = SOURCE_ROOT; };
 		1C0DA2561397A7DE0246858B /* ofxGuiGroup.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 30; name = ofxGuiGroup.h; path = ../../../addons/ofxGui/src/ofxGuiGroup.h; sourceTree = SOURCE_ROOT; };
 		2834D88A62CD23F3DE2C47D1 /* ofxButton.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 30; name = ofxButton.h; path = ../../../addons/ofxGui/src/ofxButton.h; sourceTree = SOURCE_ROOT; };
+		2E75D01C2099886300813C57 /* slCubeView.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = slCubeView.cpp; sourceTree = "<group>"; };
+		2E75D01D2099886300813C57 /* slCubeView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = slCubeView.h; sourceTree = "<group>"; };
 		2EAD8007209400C1001F4A49 /* slTimeline.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = slTimeline.cpp; sourceTree = "<group>"; };
 		2EAD8008209400C1001F4A49 /* slTimeline.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = slTimeline.h; sourceTree = "<group>"; };
 		2EAD800A20940361001F4A49 /* slVideoCube.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = slVideoCube.cpp; sourceTree = "<group>"; };
@@ -116,6 +119,8 @@
 			children = (
 				2EAD8008209400C1001F4A49 /* slTimeline.h */,
 				2EAD8007209400C1001F4A49 /* slTimeline.cpp */,
+				2E75D01D2099886300813C57 /* slCubeView.h */,
+				2E75D01C2099886300813C57 /* slCubeView.cpp */,
 			);
 			path = gui;
 			sourceTree = "<group>";
@@ -308,6 +313,7 @@
 				2EAD800F209405AF001F4A49 /* slLinearAlgebra.cpp in Sources */,
 				1CD33E884D9E3358252E82A1 /* ofxToggle.cpp in Sources */,
 				2EAD800C20940361001F4A49 /* slVideoCube.cpp in Sources */,
+				2E75D01E2099886300813C57 /* slCubeView.cpp in Sources */,
 				5CBB2AB3A60F65431D7B555D /* ofxButton.cpp in Sources */,
 				B266578FC55D23BFEBC042E7 /* ofxGuiGroup.cpp in Sources */,
 				2EFF2BFE20890EAB008A5FA9 /* ofxVideoRecorder.cpp in Sources */,

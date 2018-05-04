@@ -181,9 +181,8 @@ void ofApp::draw(){
         ofDrawBitmapString("loading frame " + ofToString(f) + "/" + ofToString(videoCube->frames), 20, 20);
         
         ofSetColor(255, 255, 255);
-        
         cubeView->render(f, movie.getTexture(), false).draw(0,0);
-  
+        
     } else {
         // Draw preview output image
         tv.draw(guiWidth, 0, previewWidth, previewHeight);
