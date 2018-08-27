@@ -12,6 +12,12 @@ Spacelapser is a tool for exploring the three-dimensional volumes created by loa
 
 The project was built in OpenFrameworks and should be cross-platform. It is tested built with Xcode on OS X.
 
+#### OS X
+
+1. [Install OpenFrameworks:](https://openframeworks.cc/download/)
+
+2. Build the Xcode project in this repository. 
+
 #### Ubuntu
 
 1. [Install OpenFrameworks:](https://openframeworks.cc/setup/linux-install/)
