@@ -4,6 +4,7 @@
 void ofApp::setup(){
     ofBackground(255, 255, 255);
     ofSetFrameRate(120);
+    ofSetDataPathRoot(ofFilePath::getCurrentExeDir() + "/../Resources/");
     
     state = State::NoVideo;
     
@@ -99,7 +100,7 @@ void ofApp::update(){
         
         int f = movie.getCurrentFrame();
         
-        if (movie.isFrameNew()) {
+        if (movie.isFrameNew() && movie.getTexture().isAllocated()) {
             if (loadF > f) {
                 loadF = f;
             }
@@ -148,6 +149,7 @@ void ofApp::update(){
         
         cubeView->setParams(params);
         displayed = videoCube->getFrame(tSlider.get(), hq, previewWidth, previewHeight, params);
+//        displayed.mirror(false, true);
         displayed.update();
     } else if (state == State::Saving) {
         tSlider = tSlider + 1;
@@ -176,12 +178,14 @@ void ofApp::draw(){
         
     } else if (state == State::Loading) {
         ofBackground(20,40, 30);
-        int f = movie.getCurrentFrame();
-        ofSetColor(127, 255, 127);
-        ofDrawBitmapString("loading frame " + ofToString(f) + "/" + ofToString(videoCube->frames), 20, 20);
-        
-        ofSetColor(255, 255, 255);
-        cubeView->render(f, movie.getTexture(), false).draw(0,0);
+        if (movie.isInitialized()) {
+            int f = movie.getCurrentFrame();
+            ofSetColor(127, 255, 127);
+            ofDrawBitmapString("loading frame " + ofToString(f) + "/" + ofToString(videoCube->frames), 20, 20);
+            
+            ofSetColor(255, 255, 255);
+            cubeView->render(f, movie.getTexture(), false).draw(0,0);
+        }
         
     } else {
         // Draw preview output image
@@ -193,6 +197,10 @@ void ofApp::draw(){
         cubeView->render(tSlider, displayed.getTexture(), true).draw(0,0);
         tv.draw(0,0,guiWidth,guiHeight);
 
+        // Constrain timeline bounds
+        tMin.setMax(tMax - 1);
+        tMax.setMin(tMin + 1);
+        
         // Draw timeline
         timeline->setTBounds(tMin, tMax);
         timeline->setParams(params);
@@ -303,6 +311,7 @@ void ofApp::recordVideo() {
         return;
     }
     
+    vidRecorder.setFfmpegLocation(ofFilePath::getCurrentExeDir() + "/../Resources/ffmpeg");
     vidRecorder.setup(path, params.outWidthSlider, params.outHeightSlider, 30);
     vidRecorder.start();
     tSlider = tMin - 1;
