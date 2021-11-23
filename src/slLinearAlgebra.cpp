@@ -18,7 +18,7 @@ ofMatrix3x3 getRotationMatrix(float xAngle, float yAngle, float zAngle) {
     
     ofMatrix3x3 yMatrix = ofMatrix3x3(cosd(yAngle), 0, sind(yAngle), 0, 1, 0, -sind(yAngle), 0, cosd(yAngle));
     ofMatrix3x3 zMatrix = ofMatrix3x3(cosd(zAngle), -sind(zAngle), 0, sind(zAngle), cosd(zAngle), 0, 0, 0, 1);
-    return yMatrix * zMatrix * xMatrix;
+    return zMatrix * yMatrix * xMatrix;
 }
 
 // multiply a 1x3 vector and a 3x3 matrix, producing a 1x3 vector

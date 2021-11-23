@@ -47,9 +47,9 @@ ofImage slVideoCube::getFrame(float t, bool interpolate, int resX, int resY, sli
     unsigned char * tmpPixels = tmpFrame.getPixels().getData();
     ofMatrix3x3 transDir = getRotationMatrix(params.dirX, params.dirY, 0);
     
-    ofMatrix3x3 trans = getRotationMatrix(params.xSlider, params.ySlider, params.zSlider);
+    ofMatrix3x3 trans = getRotationMatrix(params.xSlider, params.ySlider, 0) * getRotationMatrix(0,0, -params.zSlider);
     ofVec3f rotated_coords, travel_direction;
-    travel_direction = matMul(ofVec3f(0, 0, t), transDir);
+    travel_direction = matMul(ofVec3f(0, 0, -t), transDir);
     // I'm not sure if there's an overhead to using ofVec2fs, so I'm using floats.
     float normal_y, normal_x;
     float denormal_x, denormal_y, denormal_z;

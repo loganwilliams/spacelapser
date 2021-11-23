@@ -46,7 +46,7 @@ ofFbo slCubeView::render(float t, ofTexture tex, bool drawSlice) {
     
     if (drawSlice) {
         // Draw plane
-        ofMatrix3x3 transDir = getRotationMatrix(params.dirX, params.dirY, params.zSlider);
+        ofMatrix3x3 transDir = getRotationMatrix(params.dirX, -params.dirY, 0) * getRotationMatrix(0, 0, params.zSlider);
         ofVec3f travel_normal = matMul(ofVec3f(0,0,1), transDir);
         ofVec3f travel_direction = travel_normal * t;
         ofVec3f start_position = ofVec3f(travel_direction.x + params.outXOffset, travel_direction.y + params.outYOffset, travel_direction.z);
@@ -56,8 +56,9 @@ ofFbo slCubeView::render(float t, ofTexture tex, bool drawSlice) {
         slice.setWidth(params.outWidthSlider);
         tex.bind();
         ofSetColor(255, 255, 255, 200);
-        slice.setOrientation(ofVec3f(params.xSlider, params.ySlider, params.zSlider));
-        
+        slice.setOrientation(ofVec3f(params.xSlider, -params.ySlider, 0));
+        slice.rollDeg(params.zSlider);
+
         slice.setPosition(start_position);
         slice.draw();
         tex.unbind();
